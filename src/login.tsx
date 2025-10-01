@@ -1,22 +1,12 @@
 import React, { useMemo, useState } from "react";
 import "./login.css";
 
-/**
- * Simple, dependency-free Login Page (React + TypeScript)
- * - No external form libs, no zod — just React state
- * - Reusable UI primitives: Card, Button, TextField, FormAlert, Divider
- * - Blue & white theme via CSS variables
- *
- * Usage:
- * <LoginPage onLogin={async ({ email, password }) => {
- *   await api.login({ email, password }); // e.g., axios POST
- * }} />
- */
-
 type LoginValues = { email: string; password: string };
 
+// ⬇️ add onLoginSuccess prop
 export type LoginPageProps = {
   onLogin?: (values: LoginValues) => Promise<void> | void;
+  onLoginSuccess?: (user: any) => void;
   initialEmail?: string;
   brand?: React.ReactNode;
   title?: string;
@@ -27,6 +17,7 @@ export type LoginPageProps = {
 
 export default function LoginPage({
   onLogin,
+  onLoginSuccess,
   initialEmail,
   brand,
   title = "Welcome back",
@@ -45,7 +36,6 @@ export default function LoginPage({
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Very simple validators — feel free to adapt
   const errors = useMemo(() => {
     const e: Partial<Record<keyof LoginValues, string>> = {};
     if (!values.email.trim()) e.email = "Email is required.";
@@ -55,56 +45,49 @@ export default function LoginPage({
     return e;
   }, [values]);
 
-  const hasErrors = Object.keys(errors).length > 0;
-
   function handleChange<K extends keyof LoginValues>(key: K, val: string) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
-async function handleSubmit(ev: React.FormEvent) {
-  ev.preventDefault();
-  setServerError(null);
 
-  // mark fields as touched so errors show
-  setTouched({ email: true, password: true });
-  if (Object.keys(errors).length > 0) return;
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    setServerError(null);
+    setTouched({ email: true, password: true });
+    if (Object.keys(errors).length > 0) return;
 
-  try {
-    setSubmitting(true);
+    try {
+      setSubmitting(true);
 
-    const res = await fetch("http://localhost:8080/api/auth/login", {
-      method: "POST", // <-- POST (not GET)
-      headers: { "Content-Type": "application/json" },
-      // add credentials: 'include' later if you switch to cookies/sessions
-      body: JSON.stringify({
-        email: values.email.trim().toLowerCase(),
-        password: values.password,
-      }),
-    });
+      const res = await fetch("http://localhost:8080/api/auth/login", {
+        method: "POST",
+        credentials: "include",             // ⬅️ send cookie
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email.trim().toLowerCase(),
+          password: values.password,
+        }),
+      });
 
-    if (!res.ok) {
-      // Try to parse JSON error, fallback to text
-      let message = `Login failed (${res.status})`;
-      try {
-        const data = await res.json();
-        if (typeof data?.message === "string") message = data.message;
-      } catch {
-        const txt = await res.text();
-        if (txt) message = txt;
+      if (!res.ok) {
+        let message = `Login failed (${res.status})`;
+        try {
+          const data = await res.json();
+          if (typeof data?.message === "string") message = data.message;
+        } catch {
+          const txt = await res.text();
+          if (txt) message = txt;
+        }
+        throw new Error(message);
       }
-      throw new Error(message);
+
+      const user = await res.json();
+      onLoginSuccess?.(user);               // ⬅️ lift user to parent (App)
+    } catch (err: any) {
+      setServerError(err?.message ?? "Could not sign you in. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const user = await res.json();
-    console.log("Login OK:", user);
-    alert("Login succesful!");
-    // TODO: navigate or lift state up (e.g., setUser(user))
-  } catch (err: any) {
-    setServerError(err?.message ?? "Could not sign you in. Please try again.");
-  } finally {
-    setSubmitting(false);
   }
-}
-
 
   return (
     <div className="lp-root">
@@ -149,21 +132,11 @@ async function handleSubmit(ev: React.FormEvent) {
               </Button>
 
               <div className="lp-links">
-                <button
-                  type="button"
-                  className="lp-link"
-                  onClick={onNavigateToForgot}
-                >
+                <button type="button" className="lp-link" onClick={onNavigateToForgot}>
                   Forgot password?
                 </button>
-                <span className="lp-dot" aria-hidden>
-                  ·
-                </span>
-                <button
-                  type="button"
-                  className="lp-link"
-                  onClick={onNavigateToRegister}
-                >
+                <span className="lp-dot" aria-hidden>·</span>
+                <button type="button" className="lp-link" onClick={onNavigateToRegister}>
                   Create account
                 </button>
               </div>
