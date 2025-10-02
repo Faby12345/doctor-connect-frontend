@@ -21,7 +21,7 @@ function App() {
 
   const items = [
     { icon: <VscHome size={27} />, label: "Home", onClick: () => navigate("/") },
-    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/DoctorsPage") },
+    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/doctors") },
     { icon: <VscAccount size={27} />, label: "Profile", onClick: () => alert("Profile!") },
     { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings!") },
   ];
@@ -122,6 +122,7 @@ function App() {
 
           {/* Fallback simplu: dacă nu se potrivește nimic, mergi acasă */}
           <Route path="*" element={<div style={{ padding: 24 }}>Not found</div>} />
+          <Route path="/doctors" element={<DoctorsPage />} />
         </Routes>
       </>
   );
