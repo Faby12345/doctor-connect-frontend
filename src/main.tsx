@@ -7,36 +7,50 @@ import LoginPage from "./login";
 import RegisterPage from "./register";
 import MainPage, { type User } from "./MainPage";
 import DoctorsPage from "./DoctorsPage";
+import DoctorProfile from "./DoctorProfile/DoctorProfilePage"; 
 
 import Dock from "./components/Dock.tsx";
 import { VscHome, VscArchive, VscAccount, VscSettingsGear } from "react-icons/vsc";
+
+/** Guard a route by role */
+function RoleRoute({
+  user,
+  allow,
+  children,
+}: {
+  user: User;
+  allow: Array<User["role"]>;
+  children: React.ReactElement;
+}) {
+  if (!allow.includes(user.role)) return <div style={{ padding: 24 }}>Forbidden</div>;
+  return children;
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
   const [view, setView] = useState<"login" | "register" | "main">("login");
 
-  // 👇 hook-ul funcționează doar dacă App e copil al <BrowserRouter>
   const navigate = useNavigate();
 
   const items = [
     { icon: <VscHome size={27} />, label: "Home", onClick: () => navigate("/") },
     { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/doctors") },
-    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => alert("Profile!") },
+    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => navigate("/me") }, // ⬅️ go to /me
     { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings!") },
   ];
 
+  // Boot: check session and route doctors to /me
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/auth/me", {
-          credentials: "include",
-        });
+        const res = await fetch("http://localhost:8080/api/auth/me", { credentials: "include" });
         if (res.ok) {
           const me = (await res.json()) as User;
           if (me && (me.authenticated ?? true) && me.id) {
             setUser(me);
             setView("main");
+            if (me.role === "DOCTOR") navigate("/me"); // ⬅️ doctor lands on profile
           }
         }
       } catch {
@@ -45,7 +59,7 @@ function App() {
         setBooting(false);
       }
     })();
-  }, []);
+  }, [navigate]);
 
   async function handleLogout() {
     await fetch("http://localhost:8080/api/auth/logout", {
@@ -54,85 +68,90 @@ function App() {
     });
     setUser(null);
     setView("login");
-    navigate("/"); // opțional: du-te „acasă” după logout
+    navigate("/");
   }
 
   if (booting) return <div style={{ padding: 24 }}>Loading…</div>;
 
-  // 🔹 Meniul (Dock) îl afișăm mereu
-  // 🔹 Pagina țintă NU trebuie randată direct — doar prin rute
   return (
-      <>
-        <Dock items={items} panelHeight={75} baseItemSize={70} magnification={90} />
+    <>
+      <Dock items={items} panelHeight={75} baseItemSize={70} magnification={90} />
 
-        <Routes>
-          {/* Public routes */}
-          {!user && view === "register" && (
-              <Route
-                  path="/register"
-                  element={
-                    <RegisterPage
-                        onRegister={async (vals) => {
-                          const res = await fetch("http://localhost:8080/api/auth/register", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            credentials: "include",
-                            body: JSON.stringify(vals),
-                          });
-                          if (!res.ok) throw new Error(await res.text());
-                          setView("login");
-                          navigate("/"); // după register mergem la login
-                        }}
-                        onNavigateToLogin={() => {
-                          setView("login");
-                          navigate("/");
-                        }}
-                    />
-                  }
+      <Routes>
+        {/* Public routes */}
+        {!user && view === "register" && (
+          <Route
+            path="/register"
+            element={
+              <RegisterPage
+                onRegister={async (vals) => {
+                  const res = await fetch("http://localhost:8080/api/auth/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(vals),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  setView("login");
+                  navigate("/");
+                }}
+                onNavigateToLogin={() => {
+                  setView("login");
+                  navigate("/");
+                }}
               />
-          )}
+            }
+          />
+        )}
 
-          {!user && view !== "register" && (
-              <Route
-                  path="/"
-                  element={
-                    <LoginPage
-                        onNavigateToRegister={() => {
-                          setView("register");
-                          navigate("/register");
-                        }}
-                        onLoginSuccess={(u) => {
-                          setUser(u);
-                          setView("main");
-                          navigate("/"); // mergi în „main”
-                        }}
-                    />
-                  }
+        {!user && view !== "register" && (
+          <Route
+            path="/"
+            element={
+              <LoginPage
+                onNavigateToRegister={() => {
+                  setView("register");
+                  navigate("/register");
+                }}
+                onLoginSuccess={(u) => {
+                  setUser(u);
+                  setView("main");
+                  // ⬇️ route based on role after login
+                  if (u.role === "DOCTOR") navigate("/me");
+                  else navigate("/");
+                }}
               />
-          )}
+            }
+          />
+        )}
 
-          {/* Private/main area */}
-          {user && (
-              <>
-                <Route path="/" element={<MainPage user={user} onLogout={handleLogout} />} />
-                {/* 👇 Ruta pe care o folosește butonul Archive */}
-                <Route path="/DoctorsPage" element={<DoctorsPage />} />
-              </>
-          )}
+        {/* Private/main area */}
+        {user && (
+          <>
+            <Route path="/" element={<MainPage user={user} onLogout={handleLogout} />} />
+            <Route path="/doctors" element={<DoctorsPage />} />
+            <Route
+              path="/me"
+              element={
+                <RoleRoute user={user} allow={["DOCTOR"]}>
+                  <DoctorProfile />
+                </RoleRoute>
+              }
+            />
+          </>
+        )}
 
-          {/* Fallback simplu: dacă nu se potrivește nimic, mergi acasă */}
-          <Route path="*" element={<div style={{ padding: 24 }}>Not found</div>} />
-          <Route path="/doctors" element={<DoctorsPage />} />
-        </Routes>
-      </>
+        {/* Fallback */}
+        <Route path="*" element={<div style={{ padding: 24 }}>Not found</div>} />
+      </Routes>
+    </>
   );
 }
 
 createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-      {/* ✅ Router la rădăcină ca useNavigate să funcționeze */}
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </StrictMode>
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
 );
