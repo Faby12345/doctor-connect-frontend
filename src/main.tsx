@@ -7,7 +7,7 @@ import LoginPage from "./login";
 import RegisterPage from "./register";
 import MainPage, { type User } from "./MainPage";
 import DoctorsPage from "./DoctorsPage";
-import DoctorProfile from "./DoctorProfile/DoctorProfilePage"; 
+import DoctorProfile from "./DoctorProfile/DoctorProfilePage";
 
 import Dock from "./components/Dock.tsx";
 import { VscHome, VscArchive, VscAccount, VscSettingsGear } from "react-icons/vsc";
@@ -34,13 +34,17 @@ function App() {
   const navigate = useNavigate();
 
   const items = [
+    // ✅ Home goes to /doctors
+    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => navigate("/me") },
     { icon: <VscHome size={27} />, label: "Home", onClick: () => navigate("/") },
-    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/doctors") },
-    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => navigate("/me") }, // ⬅️ go to /me
-    { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings!") },
+    // keep Archive to /doctors too (or change to another page if you like)
+    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => alert("archive") },
+    // ✅ Profile goes to /me
+    
+    { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings") },
   ];
 
-  // Boot: check session and route doctors to /me
+  // Boot: check session (NO redirect to /me here)
   useEffect(() => {
     (async () => {
       try {
@@ -50,7 +54,7 @@ function App() {
           if (me && (me.authenticated ?? true) && me.id) {
             setUser(me);
             setView("main");
-            if (me.role === "DOCTOR") navigate("/me"); // ⬅️ doctor lands on profile
+           
           }
         }
       } catch {
@@ -68,7 +72,7 @@ function App() {
     });
     setUser(null);
     setView("login");
-    navigate("/");
+    //navigate("/");
   }
 
   if (booting) return <div style={{ padding: 24 }}>Loading…</div>;
@@ -116,8 +120,8 @@ function App() {
                 onLoginSuccess={(u) => {
                   setUser(u);
                   setView("main");
-                  // ⬇️ route based on role after login
-                  if (u.role === "DOCTOR") navigate("/me");
+                  // ✅ after login, doctors go to /doctors; others to /
+                  if (u.role === "DOCTOR") navigate("/doctors");
                   else navigate("/");
                 }}
               />
@@ -128,8 +132,11 @@ function App() {
         {/* Private/main area */}
         {user && (
           <>
+            {/* You can keep MainPage on / if you want a welcome dashboard */}
             <Route path="/" element={<MainPage user={user} onLogout={handleLogout} />} />
+            {/* Doctors listing */}
             <Route path="/doctors" element={<DoctorsPage />} />
+            {/* Doctor's own profile (/me) restricted to DOCTOR */}
             <Route
               path="/me"
               element={
