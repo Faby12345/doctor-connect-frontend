@@ -1,11 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import DoctorCard from "./components/DoctorCard";
-import type { Doctor } from "./components/DoctorCard";
+
 import useDebounce from "./hooks/useDebounce";
 import "./doctors.css";
 
-export type DoctorRow = Doctor; // same shape as our card
+ // same shape as our card
 
+export type DoctorRow = {
+id: string;
+fullName: string;
+specialty: string;
+city: string;
+priceMinCents: number;
+priceMaxCents: number;
+verified: boolean;
+ratingAvg: number; // 0..5
+ratingCount: number;
+//nextSlots?: string[];
+};
 export default function DoctorsPage() {
   // ---------- UI state (controlled inputs) ----------
   const [specialty, setSpecialty] = useState("");
@@ -29,10 +41,11 @@ export default function DoctorsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // load local JSON once
+  const BASE_API = "http://localhost:8080/api/doctor";
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/data/doctors.json", { cache: "no-store" });
+        const res = await fetch("http://localhost:8080/api/doctor/all", { cache: "no-store" });
         if (!res.ok) throw new Error(`Failed to load mock data: ${res.status}`);
         const data = (await res.json()) as DoctorRow[];
         setRows(data);
