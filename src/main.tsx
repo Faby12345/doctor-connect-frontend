@@ -8,6 +8,7 @@ import RegisterPage from "./register";
 import MainPage, { type User } from "./MainPage";
 import DoctorsPage from "./DoctorsPage";
 import DoctorProfile from "./DoctorProfile/DoctorProfilePage";
+import DoctorProfile from "./DoctorProfile/DoctorProfilePage"; 
 
 import Dock from "./components/Dock.tsx";
 import { VscHome, VscArchive, VscAccount, VscSettingsGear } from "react-icons/vsc";
@@ -45,6 +46,12 @@ function App() {
   ];
 
   // Boot: check session (NO redirect to /me here)
+    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/doctors") },
+    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => navigate("/me") }, // ⬅️ go to /me
+    { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings!") },
+  ];
+
+  // Boot: check session and route doctors to /me
   useEffect(() => {
     (async () => {
       try {
@@ -55,6 +62,7 @@ function App() {
             setUser(me);
             setView("main");
            
+            if (me.role === "DOCTOR") navigate("/me"); // ⬅️ doctor lands on profile
           }
         }
       } catch {
@@ -73,6 +81,7 @@ function App() {
     setUser(null);
     setView("login");
     //navigate("/");
+    navigate("/");
   }
 
   if (booting) return <div style={{ padding: 24 }}>Loading…</div>;
@@ -122,6 +131,8 @@ function App() {
                   setView("main");
                   // ✅ after login, doctors go to /doctors; others to /
                   if (u.role === "DOCTOR") navigate("/doctors");
+                  // ⬇️ route based on role after login
+                  if (u.role === "DOCTOR") navigate("/me");
                   else navigate("/");
                 }}
               />
@@ -137,6 +148,8 @@ function App() {
             {/* Doctors listing */}
             <Route path="/doctors" element={<DoctorsPage />} />
             {/* Doctor's own profile (/me) restricted to DOCTOR */}
+            <Route path="/" element={<MainPage user={user} onLogout={handleLogout} />} />
+            <Route path="/doctors" element={<DoctorsPage />} />
             <Route
               path="/me"
               element={
