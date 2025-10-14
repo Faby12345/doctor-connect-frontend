@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import "./DoctorsProfilePage.css";
 
 export type DoctorMe = {
@@ -19,8 +20,16 @@ export type DoctorMe = {
     zip?: string | null;
     country?: string | null;
   } | null;
-  availability?: Array<{ dayOfWeek: number; start: string; end: string }> | null;
-  stats?: { patientsCount?: number | null; appointmentsToday?: number | null; rating?: number | null } | null;
+  availability?: Array<{
+    dayOfWeek: number;
+    start: string;
+    end: string;
+  }> | null;
+  stats?: {
+    patientsCount?: number | null;
+    appointmentsToday?: number | null;
+    rating?: number | null;
+  } | null;
 };
 
 type FetchState =
@@ -34,8 +43,150 @@ const ME_ENDPOINT = "/data/doctorProfile.json";
 function dayName(idx: number) {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][idx] ?? `Day ${idx}`;
 }
+function formatPrice(cents: number) {
+  return `${(cents / 100).toFixed(0)} RON`;
+}
+interface DoctorDTO {
+  id: string;
+  fullName: string;
+  speciality: string;
+  city: string;
+  priceMinCents: number;
+  priceMaxCents: number;
+  verified: boolean;
+  ratingAvg: number;
+  ratingCount: number;
+}
 
 export default function DoctorProfile() {
+  const { id } = useParams<{ id: string }>();
+  const [doctor, setDoctor] = useState<DoctorDTO | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setError("Missing doctor id");
+      return;
+    }
+    const ctrl = new AbortController();
+
+    fetch(`http://localhost:8080/api/doctor/${id}`, {
+      signal: ctrl.signal,
+      credentials: "include",
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load profile (${r.status})`);
+        return r.json();
+      })
+      .then((data) => {
+        // If backend uses "speciality", normalize:
+        const normalized = data.specialty
+          ? data
+          : { ...data, specialty: data.speciality };
+        setDoctor(normalized);
+      })
+      .catch((e) => {
+        if (e.name !== "AbortError") setError(e.message);
+      });
+
+    return () => ctrl.abort();
+  }, [id]);
+
+  if (error) return <div>Error: {error}</div>;
+  if (!doctor) return <div>Loading...</div>;
+  function initials(name: string) {
+    return (
+      name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase())
+        .join("") || "?"
+    );
+  }
+
+  // after you setDoctor(normalized) in your effect, use this render:
+
+  if (error)
+    return (
+      <div className="doctor-profile">
+        <div className="card card--error">
+          <strong>Couldn’t load profile.</strong>
+          <div className="card__spacer" />
+          {error}
+        </div>
+      </div>
+    );
+  if (!doctor)
+    return (
+      <div className="doctor-profile">
+        <div className="card">
+          <div className="skeleton skeleton--title" />
+          <div className="skeleton skeleton--text" />
+          <div className="skeleton skeleton--text" />
+        </div>
+      </div>
+    );
+
+  // prefer normalized "specialty" if present
+  const specialty = (doctor as any).specialty ?? doctor.speciality;
+
+  return (
+    <div className="doctor-profile">
+      {/* Header */}
+      <header className="doctor-profile__header">
+        <div className="doctor-profile__avatar">
+          {/* No avatarUrl in this API, so show initials */}
+          <div className="doctor-profile__avatar-fallback">
+            {initials(doctor.fullName)}
+          </div>
+        </div>
+
+        <div className="doctor-profile__meta">
+          <h1 className="doctor-profile__name">{doctor.fullName}</h1>
+          <div className="doctor-profile__specialty">{specialty}</div>
+
+          <div className="doctor-profile__chips">
+            <span className="chip">
+              ★ {doctor.ratingAvg.toFixed(1)} ({doctor.ratingCount})
+            </span>
+            <span className="chip">{doctor.city}</span>
+            <span className="chip">
+              {formatPrice(doctor.priceMinCents)} –{" "}
+              {formatPrice(doctor.priceMaxCents)}
+            </span>
+            <span className="chip">
+              {doctor.verified ? "Verified ✓" : "Unverified"}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Basic details card (uses only available fields) */}
+      <section className="card">
+        <h2>At a glance</h2>
+        <div className="stats">
+          <div className="stat">
+            <div className="stat__value">{doctor.city}</div>
+            <div className="stat__label">City</div>
+          </div>
+          <div className="stat">
+            <div className="stat__value">{doctor.verified ? "Yes" : "No"}</div>
+            <div className="stat__label">Verified</div>
+          </div>
+          <div className="stat">
+            <div className="stat__value">
+              {formatPrice(doctor.priceMinCents)}–
+              {formatPrice(doctor.priceMaxCents)}
+            </div>
+            <div className="stat__label">Price range</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+/*
   const [state, setState] = useState<FetchState>({ status: "idle" });
   const abortRef = useRef<AbortController | null>(null);
 
@@ -44,10 +195,14 @@ export default function DoctorProfile() {
     abortRef.current = ctrl;
     (async () => {
       try {
+        
         setState({ status: "loading" });
         const res = await fetch(ME_ENDPOINT, { credentials: "include", signal: ctrl.signal });
+        
         if (!res.ok) {
+           console.log("test");
           setState({
+           
             status: "error",
             code: res.status,
             message:
@@ -211,5 +366,4 @@ export default function DoctorProfile() {
         )}
       </section>
     </div>
-  );
-}
+  );*/

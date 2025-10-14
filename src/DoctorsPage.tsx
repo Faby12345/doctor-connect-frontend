@@ -3,29 +3,33 @@ import DoctorCard from "./components/DoctorCard";
 
 import useDebounce from "./hooks/useDebounce";
 import "./doctors.css";
+import { useNavigate } from "react-router-dom";
 
- // same shape as our card
+// same shape as our card
 
 export type DoctorRow = {
-id: string;
-fullName: string;
-specialty: string;
-city: string;
-priceMinCents: number;
-priceMaxCents: number;
-verified: boolean;
-ratingAvg: number; // 0..5
-ratingCount: number;
-//nextSlots?: string[];
+  id: string;
+  fullName: string;
+  specialty: string;
+  city: string;
+  priceMinCents: number;
+  priceMaxCents: number;
+  verified: boolean;
+  ratingAvg: number; // 0..5
+  ratingCount: number;
+  //nextSlots?: string[];
 };
 export default function DoctorsPage() {
+  const navigate = useNavigate();
   // ---------- UI state (controlled inputs) ----------
   const [specialty, setSpecialty] = useState("");
   const [city, setCity] = useState("");
   const [minPrice, setMinPrice] = useState<number | "">("");
   const [maxPrice, setMaxPrice] = useState<number | "">("");
   const [onlyVerified, setOnlyVerified] = useState(false);
-  const [sort, setSort] = useState<"relevance" | "rating" | "priceAsc" | "priceDesc">("relevance");
+  const [sort, setSort] = useState<
+    "relevance" | "rating" | "priceAsc" | "priceDesc"
+  >("relevance");
 
   // debounce inputs for smoother UX on large lists
   const debSpecialty = useDebounce(specialty, 200);
@@ -44,8 +48,13 @@ export default function DoctorsPage() {
   const BASE_API = "http://localhost:8080/api/doctor";
   useEffect(() => {
     (async () => {
+      const ctrl = new AbortController();
       try {
-        const res = await fetch("http://localhost:8080/api/doctor/all", { cache: "no-store" });
+        const res = await fetch("http://localhost:8080/api/doctor/all", {
+          cache: "no-store",
+          signal: ctrl.signal,
+          credentials: "include",
+        });
         if (!res.ok) throw new Error(`Failed to load mock data: ${res.status}`);
         const data = (await res.json()) as DoctorRow[];
         setRows(data);
@@ -67,7 +76,8 @@ export default function DoctorsPage() {
     const min = debMin === "" ? null : Number(debMin);
     const max = debMax === "" ? null : Number(debMax);
 
-    if (spec) list = list.filter((d) => d.specialty.toLowerCase().includes(spec));
+    if (spec)
+      list = list.filter((d) => d.specialty.toLowerCase().includes(spec));
     if (cty) list = list.filter((d) => d.city.toLowerCase().includes(cty));
     if (min !== null) list = list.filter((d) => d.priceMinCents >= min * 100);
     if (max !== null) list = list.filter((d) => d.priceMaxCents <= max * 100);
@@ -102,25 +112,53 @@ export default function DoctorsPage() {
       <div className="filters" role="region" aria-label="filters">
         <div>
           <label>Specialty</label>
-          <input className="input" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Dermatology" />
+          <input
+            className="input"
+            value={specialty}
+            onChange={(e) => setSpecialty(e.target.value)}
+            placeholder="Dermatology"
+          />
         </div>
         <div>
           <label>City</label>
-          <input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Bucharest" />
+          <input
+            className="input"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Bucharest"
+          />
         </div>
         <div>
           <label>Min Price (RON)</label>
-          <input className="input" inputMode="numeric" pattern="[0-9]*" value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value === "" ? "" : Number(e.target.value))} />
+          <input
+            className="input"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={minPrice}
+            onChange={(e) =>
+              setMinPrice(e.target.value === "" ? "" : Number(e.target.value))
+            }
+          />
         </div>
         <div>
           <label>Max Price (RON)</label>
-          <input className="input" inputMode="numeric" pattern="[0-9]*" value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))} />
+          <input
+            className="input"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={maxPrice}
+            onChange={(e) =>
+              setMaxPrice(e.target.value === "" ? "" : Number(e.target.value))
+            }
+          />
         </div>
         <div>
           <label>Sort</label>
-          <select className="select" value={sort} onChange={(e) => setSort(e.target.value as any)}>
+          <select
+            className="select"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as any)}
+          >
             <option value="relevance">Relevance</option>
             <option value="rating">Rating</option>
             <option value="priceAsc">Price ↑</option>
@@ -128,7 +166,11 @@ export default function DoctorsPage() {
           </select>
         </div>
         <label className="checkboxRow">
-          <input type="checkbox" checked={onlyVerified} onChange={(e) => setOnlyVerified(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={onlyVerified}
+            onChange={(e) => setOnlyVerified(e.target.checked)}
+          />
           Only verified
         </label>
       </div>
@@ -159,7 +201,11 @@ export default function DoctorsPage() {
       ) : (
         <div className="cardsGrid">
           {visible?.map((r) => (
-            <DoctorCard key={r.id} d={r} onView={(id) => alert(`Open /doctor/${id}`)} />
+            <DoctorCard
+              key={r.id}
+              d={r}
+              onView={(id) => navigate(`/doctor/${id}`)}
+            />
           ))}
         </div>
       )}
