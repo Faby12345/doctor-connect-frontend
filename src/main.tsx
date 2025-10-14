@@ -8,7 +8,6 @@ import RegisterPage from "./register";
 import MainPage, { type User } from "./MainPage";
 import DoctorsPage from "./DoctorsPage";
 import DoctorProfile from "./DoctorProfile/DoctorProfilePage";
-import DoctorProfile from "./DoctorProfile/DoctorProfilePage"; 
 
 import Dock from "./components/Dock.tsx";
 import {
@@ -41,25 +40,21 @@ function App() {
   const navigate = useNavigate();
 
   const items = [
-    // ✅ Home goes to /doctors
-    {
-      icon: <VscAccount size={27} />,
-      label: "Profile",
-      onClick: () => navigate("/me"),
-    },
     {
       icon: <VscHome size={27} />,
       label: "Home",
       onClick: () => navigate("/"),
     },
-    // keep Archive to /doctors too (or change to another page if you like)
     {
       icon: <VscArchive size={27} />,
-      label: "Archive",
-      onClick: () => alert("archive"),
+      label: "Doctors",
+      onClick: () => navigate("/doctors"),
     },
-    // ✅ Profile goes to /me
-
+    {
+      icon: <VscAccount size={27} />,
+      label: "Profile",
+      onClick: () => navigate("/me"),
+    },
     {
       icon: <VscSettingsGear size={27} />,
       label: "Settings",
@@ -67,13 +62,7 @@ function App() {
     },
   ];
 
-  // Boot: check session (NO redirect to /me here)
-    { icon: <VscArchive size={27} />, label: "Archive", onClick: () => navigate("/doctors") },
-    { icon: <VscAccount size={27} />, label: "Profile", onClick: () => navigate("/me") }, // ⬅️ go to /me
-    { icon: <VscSettingsGear size={27} />, label: "Settings", onClick: () => alert("Settings!") },
-  ];
-
-  // Boot: check session and route doctors to /me
+  // Boot: check session
   useEffect(() => {
     (async () => {
       try {
@@ -102,7 +91,6 @@ function App() {
     });
     setUser(null);
     setView("login");
-    //navigate("/");
     navigate("/");
   }
 
@@ -119,101 +107,74 @@ function App() {
 
       <Routes>
         {/* Public routes */}
-        // Private/main area
-        {user && (
+        {!user ? (
           <>
+            <Route
+              path="/register"
+              element={
+                <RegisterPage
+                  onRegister={async (vals) => {
+                    const res = await fetch(
+                      "http://localhost:8080/api/auth/register",
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify(vals),
+                      }
+                    );
+                    if (!res.ok) throw new Error(await res.text());
+                    setView("login");
+                    navigate("/");
+                  }}
+                  onNavigateToLogin={() => {
+                    setView("login");
+                    navigate("/");
+                  }}
+                />
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <LoginPage
+                  onNavigateToRegister={() => {
+                    setView("register");
+                    navigate("/register");
+                  }}
+                  onLoginSuccess={(u) => {
+                    setUser(u);
+                    setView("main");
+                    // after login, doctors go to /doctors; others to /
+                    if (u.role === "DOCTOR") navigate("/doctors");
+                    else navigate("/");
+                  }}
+                />
+              }
+            />
+          </>
+        ) : (
+          <>
+            {/* Private/main area */}
             <Route
               path="/"
               element={<MainPage user={user} onLogout={handleLogout} />}
             />
             <Route path="/doctors" element={<DoctorsPage />} />
-
-            {/* NEW: doctor details */}
+            {/* Doctor details (visible to any signed-in user) */}
             <Route path="/doctor/:id" element={<DoctorProfile />} />
+            {/* Doctor's own profile restricted to DOCTOR */}
+            <Route
+              path="/me"
+              element={
+                <RoleRoute user={user} allow={["DOCTOR"]}>
+                  <DoctorProfile />
+                </RoleRoute>
+              }
+            />
+          </>
+        )}
 
-            {/* Doctor's own profile */}
-            <Route
-              path="/me"
-              element={
-                <RoleRoute user={user} allow={["DOCTOR"]}>
-                  <DoctorProfile />
-                </RoleRoute>
-              }
-            />
-          </>
-        )}
-        {!user && view === "register" && (
-          <Route
-            path="/register"
-            element={
-              <RegisterPage
-                onRegister={async (vals) => {
-                  const res = await fetch(
-                    "http://localhost:8080/api/auth/register",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      credentials: "include",
-                      body: JSON.stringify(vals),
-                    }
-                  );
-                  if (!res.ok) throw new Error(await res.text());
-                  setView("login");
-                  navigate("/");
-                }}
-                onNavigateToLogin={() => {
-                  setView("login");
-                  navigate("/");
-                }}
-              />
-            }
-          />
-        )}
-        {!user && view !== "register" && (
-          <Route
-            path="/"
-            element={
-              <LoginPage
-                onNavigateToRegister={() => {
-                  setView("register");
-                  navigate("/register");
-                }}
-                onLoginSuccess={(u) => {
-                  setUser(u);
-                  setView("main");
-                  // ✅ after login, doctors go to /doctors; others to /
-                  if (u.role === "DOCTOR") navigate("/doctors");
-                  // ⬇️ route based on role after login
-                  if (u.role === "DOCTOR") navigate("/me");
-                  else navigate("/");
-                }}
-              />
-            }
-          />
-        )}
-        {/* Private/main area */}
-        {user && (
-          <>
-            {/* You can keep MainPage on / if you want a welcome dashboard */}
-            <Route
-              path="/"
-              element={<MainPage user={user} onLogout={handleLogout} />}
-            />
-            {/* Doctors listing */}
-            <Route path="/doctors" element={<DoctorsPage />} />
-            {/* Doctor's own profile (/me) restricted to DOCTOR */}
-            <Route path="/" element={<MainPage user={user} onLogout={handleLogout} />} />
-            <Route path="/doctors" element={<DoctorsPage />} />
-            <Route
-              path="/me"
-              element={
-                <RoleRoute user={user} allow={["DOCTOR"]}>
-                  <DoctorProfile />
-                </RoleRoute>
-              }
-            />
-          </>
-        )}
         {/* Fallback */}
         <Route
           path="*"
